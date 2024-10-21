@@ -1,13 +1,13 @@
 const express = require('express');
-const mongoose = require('mongoose');
+const pg = require('pg');
 const session = require('express-session');
 var passport = require('passport');
 var crypto = require('crypto');
 var routes = require('./routes');
-const connection = require('./config/database');
+const pgPool = require('./config/database');
 
-// Package documentation - https://www.npmjs.com/package/connect-mongo
-const MongoStore = require('connect-mongo')(session);
+// Package documentation - https://www.npmjs.com/package/connect-pg-simple
+const PgStore = require('connect-pg-simple')(session);
 
 // Need to require the entire Passport config module so app.js knows about it
 require('./config/passport');
@@ -23,14 +23,28 @@ require('dotenv').config();
 var app = express();
 
 app.use(express.json());
-app.use(express.urlencoded({extended: true}));
-
+app.use(express.urlencoded({ extended: true }));
 
 /**
  * -------------- SESSION SETUP ----------------
  */
 
-// TODO
+const sessionStore = new PgStore({
+  pool: pgPool,
+  tableName: 'session',
+});
+
+app.use(
+  session({
+    secret: process.env.SECRET,
+    resave: false,
+    saveUninitialized: true,
+    store: sessionStore,
+    cookie: {
+      maxAge: 24 * 60 * 60 * 1000,
+    },
+  })
+);
 
 /**
  * -------------- PASSPORT AUTHENTICATION ----------------
@@ -39,14 +53,12 @@ app.use(express.urlencoded({extended: true}));
 app.use(passport.initialize());
 app.use(passport.session());
 
-
 /**
  * -------------- ROUTES ----------------
  */
 
 // Imports all of the routes from ./routes/index.js
 app.use(routes);
-
 
 /**
  * -------------- SERVER ----------------
